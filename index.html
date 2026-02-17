@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contactbook App</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase JS Client -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Contactbook</h1>
+            <div class="actions">
+                <input type="text" id="searchInput" placeholder="Search contacts...">
+                <button id="addContactBtn" class="btn primary">Add Contact</button>
+            </div>
+        </header>
+
+        <div id="contactsList" class="contacts-grid">
+            <!-- Contacts will be loaded here -->
+            <div class="loading">Loading contacts...</div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Add Contact</h2>
+            <form id="contactForm">
+                <input type="hidden" id="contactId">
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone:</label>
+                    <input type="text" id="phone">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email">
+                </div>
+                <div class="form-group">
+                    <label for="town">Town:</label>
+                    <input type="text" id="town">
+                </div>
+                <div class="form-group">
+                    <label for="comments">Comments:</label>
+                    <textarea id="comments"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn primary">Save</button>
+                    <button type="button" class="btn secondary" id="cancelBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h2>Confirm Delete</h2>
+            <p>Are you sure you want to delete this contact?</p>
+            <div class="modal-actions">
+                <button id="confirmDeleteBtn" class="btn danger">Delete</button>
+                <button id="cancelDeleteBtn" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
