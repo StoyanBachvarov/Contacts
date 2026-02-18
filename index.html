@@ -12,15 +12,58 @@
     <div class="container">
         <header>
             <h1>Contactbook</h1>
-            <div class="actions">
-                <input type="text" id="searchInput" placeholder="Search contacts...">
-                <button id="addContactBtn" class="btn primary">Add Contact</button>
+            <div class="actions" id="authActions" style="display: none;">
+                <span id="userEmail" style="margin-right: 10px; font-size: 0.9em; color: #666;"></span>
+                <button id="logoutBtn" class="btn secondary">Logout</button>
             </div>
         </header>
 
-        <div id="contactsList" class="contacts-grid">
-            <!-- Contacts will be loaded here -->
-            <div class="loading">Loading contacts...</div>
+        <!-- Auth Container -->
+        <div id="authContainer" class="auth-container">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+                <button class="tab-btn" onclick="switchTab('register')">Register</button>
+            </div>
+            
+            <form id="loginForm" class="auth-form">
+                <h2>Login</h2>
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn primary full-width">Login</button>
+            </form>
+
+            <form id="registerForm" class="auth-form" style="display: none;">
+                <h2>Register</h2>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required minlength="6">
+                </div>
+                <button type="submit" class="btn primary full-width">Sign Up</button>
+            </form>
+            <div id="authMessage" class="message"></div>
+        </div>
+
+        <!-- App Container (Hidden by default) -->
+        <div id="appContainer" style="display: none;">
+            <div class="actions main-actions">
+                <input type="text" id="searchInput" placeholder="Search contacts...">
+                <button id="addContactBtn" class="btn primary">Add Contact</button>
+            </div>
+
+            <div id="contactsList" class="contacts-grid">
+                <!-- Contacts will be loaded here -->
+                <div class="loading">Loading contacts...</div>
+            </div>
         </div>
     </div>
 
