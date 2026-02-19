@@ -160,6 +160,22 @@ h1 {
     color: #555;
 }
 
+.tags-list {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.tag-pill {
+    background-color: #e0e0e0;
+    color: #333;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    border: 1px solid #ccc;
+}
+
 .card-actions {
     margin-top: 15px;
     display: flex;

@@ -40,40 +40,52 @@ let currentUser = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if critical elements exist
+    if (!loginForm || !registerForm) {
+        console.error("Critical DOM elements missing");
+        return;
+    }
+    
+    // Attach Listeners
+    addContactBtn.addEventListener('click', () => openModal());
+    closeModal.addEventListener('click', closeModalFunc);
+    cancelBtn.addEventListener('click', closeModalFunc);
+    window.addEventListener('click', (e) => {
+        if (e.target === contactModal) closeModalFunc();
+        if (e.target === deleteModal) closeDeleteModalFunc();
+    });
+
+    contactForm.addEventListener('submit', handleFormSubmit);
+    searchInput.addEventListener('input', handleSearch);
+    cancelDeleteBtn.addEventListener('click', closeDeleteModalFunc);
+    confirmDeleteBtn.addEventListener('click', handleDelete);
+
+    // Auth Event Listeners
+    loginForm.addEventListener('submit', handleLogin);
+    registerForm.addEventListener('submit', handleRegister);
+    logoutBtn.addEventListener('click', handleLogout);
+
+    // Initial check
     checkUser();
 });
 
-// Event Listeners
-addContactBtn.addEventListener('click', () => openModal());
-closeModal.addEventListener('click', closeModalFunc);
-cancelBtn.addEventListener('click', closeModalFunc);
-window.addEventListener('click', (e) => {
-    if (e.target === contactModal) closeModalFunc();
-    if (e.target === deleteModal) closeDeleteModalFunc();
-});
-
-contactForm.addEventListener('submit', handleFormSubmit);
-searchInput.addEventListener('input', handleSearch);
-cancelDeleteBtn.addEventListener('click', closeDeleteModalFunc);
-confirmDeleteBtn.addEventListener('click', handleDelete);
-
-// Auth Event Listeners
-loginForm.addEventListener('submit', handleLogin);
-registerForm.addEventListener('submit', handleRegister);
-logoutBtn.addEventListener('click', handleLogout);
-
 // Auth Functions
 async function checkUser() {
-    const { data: { session } } = await sbClient.auth.getSession();
+    console.log("Checking user session...");
+    const { data: { session }, error } = await sbClient.auth.getSession();
+    if (error) console.error("Error checking session:", error);
+    console.log("Session found:", session);
     handleSession(session);
 
     sbClient.auth.onAuthStateChange((_event, session) => {
+        console.log("Auth state changed:", _event, session);
         handleSession(session);
     });
 }
 
 function handleSession(session) {
     if (session) {
+        console.log("User logged in:", session.user.email);
         currentUser = session.user;
         userEmailSpan.textContent = currentUser.email;
         authContainer.style.display = 'none';
@@ -81,6 +93,7 @@ function handleSession(session) {
         authActions.style.display = 'flex';
         fetchContacts();
     } else {
+        console.log("No user session.");
         currentUser = null;
         userEmailSpan.textContent = '';
         authContainer.style.display = 'block';
@@ -92,17 +105,21 @@ function handleSession(session) {
 
 async function handleLogin(e) {
     e.preventDefault();
+    console.log("Attempting login...");
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
 
     showMessage('Logging in...', 'info');
 
     try {
-        const { error } = await sbClient.auth.signInWithPassword({
+        const { data, error } = await sbClient.auth.signInWithPassword({
             email,
             password
         });
+        
         if (error) throw error;
+        
+        console.log("Login successful:", data);
         // Success handled by onAuthStateChange
         showMessage('', 'none');
     } catch (error) {
@@ -180,13 +197,22 @@ async function fetchContacts() {
 
     
     try {
-        // Fetch contacts for the current user
+        // Fetch contacts for the current user AND their tags
         console.log("Fetching contacts for user:", currentUser.id);
         
+        // We select contacts, and also ALL associated tags via the junction table
         const { data, error } = await sbClient
             .from('contacts')
-            .select('*')
-            // Filter by user_id so users only see their own contacts
+            .select(`
+                *,
+                contact_tags (
+                    tag_id,
+                    tags (
+                        id,
+                        name
+                    )
+                )
+            `)
             .eq('user_id', currentUser.id)
             .order('name', { ascending: true });
 
@@ -195,8 +221,16 @@ async function fetchContacts() {
             throw error;
         }
         
-        console.log("Contacts fetched:", data);
-        allContacts = data;
+        // Transform data to flat tags array
+        const contactsWithTags = data.map(contact => {
+            const tags = contact.contact_tags 
+                ? contact.contact_tags.map(ct => ct.tags).filter(t => t) // extract tag object
+                : [];
+            return { ...contact, tags };
+        });
+
+        console.log("Contacts fetched:", contactsWithTags);
+        allContacts = contactsWithTags;
         renderContacts(allContacts);
     } catch (error) {
         console.error('Error fetching contacts:', error);
@@ -222,6 +256,11 @@ function renderContacts(contacts) {
                 <p><strong>Email:</strong> ${escapeHtml(contact.email || 'N/A')}</p>
                 <p><strong>Town:</strong> ${escapeHtml(contact.town || 'N/A')}</p>
                 <p><strong>Comments:</strong> ${escapeHtml(contact.comments || '')}</p>
+                <div class="tags-list">
+                    ${contact.tags && contact.tags.length > 0 
+                        ? contact.tags.map(t => `<span class="tag-pill">${escapeHtml(t.name)}</span>`).join('') 
+                        : ''}
+                </div>
             </div>
             <div class="card-actions">
                 <button class="btn secondary" onclick="editContact(${contact.id})">Edit</button>
@@ -252,10 +291,21 @@ function openModal(contact = null) {
         document.getElementById('email').value = contact.email || '';
         document.getElementById('town').value = contact.town || '';
         document.getElementById('comments').value = contact.comments || '';
+        
+        // Populate tags
+        // Handle if tags comes as array of objects or just strings depending on fetch
+        let tagsList = [];
+        if (contact.tags && Array.isArray(contact.tags)) {
+             // Supabase return format via join: [{tags: {name: "x"}}] or similar
+             // Adjusted assuming processed format or raw join
+             tagsList = contact.tags.map(t => t.name || t); 
+        }
+        document.getElementById('tags').value = tagsList.join(', ');
     } else {
         modalTitle.textContent = 'Add Contact';
         contactForm.reset();
         document.getElementById('contactId').value = '';
+        document.getElementById('tags').value = '';
     }
 }
 
@@ -281,9 +331,14 @@ async function handleFormSubmit(e) {
         user_id: currentUser.id // Link contact to current user
     };
 
+    const tagsInput = document.getElementById('tags').value;
+    const tagNames = tagsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
     try {
+        let contactId = id;
+
         if (id) {
-            // Update existing
+            // Update existing contact
             const { error } = await sbClient
                 .from('contacts')
                 .update(contactData)
@@ -291,12 +346,66 @@ async function handleFormSubmit(e) {
             
             if (error) throw error;
         } else {
-            // Create new
-            const { error } = await sbClient
+            // Create new contact
+            const { data, error } = await sbClient
                 .from('contacts')
-                .insert([contactData]);
+                .insert([contactData])
+                .select(); // Return data to get ID
             
             if (error) throw error;
+            contactId = data[0].id;
+        }
+
+        // Handle Tags
+        // 1. Resolve Tag IDs (create if missing)
+        const tagIds = [];
+        for (const tagName of tagNames) {
+            // Check if tag exists for user
+            let { data: existingTag } = await sbClient
+                .from('tags')
+                .select('id')
+                .eq('name', tagName)
+                .eq('user_id', currentUser.id)
+                .single();
+
+            if (!existingTag) {
+                // Create new tag
+                const { data: newTag, error: tagError } = await sbClient
+                    .from('tags')
+                    .insert([{ name: tagName, user_id: currentUser.id }])
+                    .select()
+                    .single();
+                
+                if (tagError) {
+                    console.error("Error creating tag:", tagError);
+                    continue; 
+                }
+                existingTag = newTag;
+            }
+            tagIds.push(existingTag.id);
+        }
+
+        // 2. Update Junction Table
+        // Simplest strategy: Delete all old associations for this contact, insert new ones
+        
+        // Delete old
+        await sbClient
+            .from('contact_tags')
+            .delete()
+            .eq('contact_id', contactId);
+        
+        // Insert new
+        if (tagIds.length > 0) {
+            const contactTagRows = tagIds.map(tid => ({
+                contact_id: contactId,
+                tag_id: tid
+            }));
+            
+            const { error: linkError } = await sbClient
+                .from('contact_tags')
+                .insert(contactTagRows);
+            
+            if (linkError) throw linkError;
         }
 
         closeModalFunc();
